@@ -22,8 +22,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app ./app
 COPY scripts ./scripts
 COPY data ./data
-# (optional) if your index.html lives at repo root, also copy it:
-# COPY index.html ./public/index.html
+COPY web ./web
 
 # Fetch embedder + build data/index during image build
 RUN python scripts/fetch_model.py \
@@ -31,4 +30,6 @@ RUN python scripts/fetch_model.py \
  && python scripts/build_index.py
 
 EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+# Use shell so ${PORT} expands on Render; default to 8000 locally
+CMD ["sh","-c","uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
