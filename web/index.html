@@ -127,7 +127,12 @@
 
   <script>
     // === Config ===
-    const BASE_URL = localStorage.getItem('ai_legi_base') || 'http://127.0.0.1:8000';
+    //const BASE_URL = localStorage.getItem('ai_legi_base') || 'http://127.0.0.1:8000';
+    const savedBase = localStorage.getItem('ai_legi_base');
+    const BASE_URL = (savedBase && /^https?:\/\//.test(savedBase))
+    ? savedBase
+    : window.location.origin;
+    
     document.getElementById('baseUrlCode').textContent = BASE_URL;
 
     // === State ===
