@@ -69,7 +69,7 @@
 </head>
 <body>
   <header>
-    <h1>AI Legislation Assistant · Local</h1>
+    <h1>AI Legislation Assistant</h1>
   </header>
 
   <div class="container">
@@ -126,13 +126,9 @@
   </div>
 
   <script>
-    // === Config ===
-    //const BASE_URL = localStorage.getItem('ai_legi_base') || 'http://127.0.0.1:8000';
+    // === Config: default to same-origin (Render) unless user overrides ===
     const savedBase = localStorage.getItem('ai_legi_base');
-    const BASE_URL = (savedBase && /^https?:\/\//.test(savedBase))
-    ? savedBase
-    : window.location.origin;
-    
+    const BASE_URL = (savedBase && /^https?:\/\//.test(savedBase)) ? savedBase : window.location.origin;
     document.getElementById('baseUrlCode').textContent = BASE_URL;
 
     // === State ===
@@ -143,7 +139,7 @@
     const msgList = el('messages');
 
     function escapeHtml(s) {
-      return String(s).replace(/[&<>\"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+      return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     }
     function makeSearchUrl(src){
       const q = [src.bill_id, src.title, src.state].filter(Boolean).join(' ');
@@ -172,14 +168,13 @@
         sources.slice(0, 6).forEach(src => {
           const row = document.createElement('div');
           row.className = 'src';
-
           const href = (src.url && String(src.url).trim()) ? src.url : makeSearchUrl(src);
 
           const a = document.createElement('a');
           a.className = 'src-link';
           a.href = href;
           a.target = '_blank';
-          a.rel = 'noopener';
+          a.rel = 'noopener noreferrer';
           a.innerHTML = `<b>${escapeHtml(src.bill_id || '')}</b> · ${escapeHtml(src.title || '')}`;
 
           const meta = document.createElement('span');
@@ -341,15 +336,18 @@
                   const href = (src.url && String(src.url).trim())
                     ? src.url
                     : makeSearchUrl(src);
+
                   const a = document.createElement('a');
                   a.className = 'src-link';
                   a.href = href;
                   a.target = '_blank';
-                  a.rel = 'noopener';
-                  a.innerHTML = `<b>${(src.bill_id||'')}</b> · ${src.title || ''}`;
+                  a.rel = 'noopener noreferrer';
+                  a.innerHTML = `<b>${escapeHtml(src.bill_id || '')}</b> · ${escapeHtml(src.title || '')}`;
+
                   const meta = document.createElement('span');
                   meta.className = 'muted';
-                  meta.textContent = ` [${src.state || ''}${src.date ? ', ' + src.date : ''}]`;
+                  meta.textContent = ` [${escapeHtml(src.state || '')}${src.date ? ', ' + escapeHtml(src.date) : ''}]`;
+
                   row.appendChild(a);
                   row.appendChild(meta);
                   sourcesDiv.appendChild(row);
