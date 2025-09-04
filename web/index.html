@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI Legislation Assistant</title>
+  <style>
+    :root {
+      --bg: #0b0f14;
+      --panel: #121821;
+      --muted: #93a1b3;
+      --text: #e9eef5;
+      --accent: #6ea8fe;
+      --good: #27ae60;
+      --bad: #e74c3c;
+      --border: #1f2835;
+      --chip: #1b2431;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial; background: var(--bg); color: var(--text); }
+    header { padding: 16px 20px; border-bottom: 1px solid var(--border); background: linear-gradient(180deg, #0d1220, #0b0f14); position: sticky; top: 0; z-index: 5; }
+    header h1 { margin: 0; font-size: 18px; letter-spacing: .4px; }
+
+    .container { display: grid; grid-template-columns: 320px 1fr; gap: 16px; padding: 16px; }
+    @media (max-width: 900px) { .container { grid-template-columns: 1fr; } }
+
+    .card { background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 16px; }
+    .card h2 { margin: 0 0 12px; font-size: 16px; color: #d5deea; }
+
+    label { display: block; font-size: 12px; color: var(--muted); margin: 8px 0 6px; }
+    input[type="text"], select, textarea { width: 100%; padding: 10px 12px; background: #0f141c; border: 1px solid var(--border); color: var(--text); border-radius: 10px; outline: none; }
+    textarea { min-height: 90px; resize: vertical; }
+
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+    .chip { background: var(--chip); border: 1px solid var(--border); padding: 6px 10px; border-radius: 999px; font-size: 12px; cursor: pointer; user-select: none; }
+    .chip.selected { outline: 1px solid var(--accent); color: var(--accent); }
+
+    .btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border); background: #0f1722; color: var(--text); cursor: pointer; }
+    .btn:disabled { opacity: .6; cursor: not-allowed; }
+    .btn.primary { background: var(--accent); color: #0b1020; border-color: transparent; font-weight: 600; }
+
+    .status { margin-top: 10px; font-size: 12px; color: var(--muted); }
+
+    /* Chat */
+    .chat { height: calc(100vh - 140px); display: grid; grid-template-rows: 1fr auto; gap: 12px; }
+    .messages { overflow: auto; padding: 8px; display: flex; flex-direction: column; gap: 12px; }
+    .bubble { border: 1px solid var(--border); border-radius: 14px; padding: 12px; background: #0e141d; }
+    .bubble.me { background: #0c1119; opacity: .9; }
+    .bubble h3 { margin: 0 0 8px; font-size: 13px; color: #b9c6d8; }
+    .reply { white-space: pre-wrap; line-height: 1.4; }
+
+    .sources { margin-top: 8px; }
+    .src { font-size: 12px; color: var(--muted); border-top: 1px dashed var(--border); padding-top: 8px; margin-top: 6px; }
+    .src b { color: #cbd7e6; }
+
+    .composer { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+    .spinner { width: 14px; height: 14px; border-radius: 50%; border: 2px solid #9bb3d7; border-top-color: transparent; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .pill { display: inline-flex; gap: 4px; align-items: center; padding: 4px 8px; border-radius: 999px; background: #0f1620; border: 1px solid var(--border); color: var(--muted); font-size: 11px; }
+    .muted { color: var(--muted); }
+    .row-tight { display: flex; gap: 8px; align-items: center; }
+    .small { font-size: 12px; }
+
+    .src-link { color: #cbd7e6; text-decoration: none; cursor: pointer; }
+    .src-link:hover { text-decoration: underline; color: #6ea8fe; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>AI Legislation Assistant · Local</h1>
+  </header>
+
+  <div class="container">
+    <!-- Onboarding -->
+    <section class="card" id="onboarding">
+      <h2>Your profile</h2>
+      <label>Company size</label>
+      <select id="size">
+        <option value="">Select…</option>
+        <option>1-49</option>
+        <option>50-99</option>
+        <option>100-199</option>
+        <option>200-499</option>
+        <option>500+</option>
+      </select>
+
+      <div class="row">
+        <div>
+          <label>Industry</label>
+          <input id="industry" type="text" placeholder="e.g., Tech" />
+        </div>
+        <div>
+          <label>State</label>
+          <select id="state"></select>
+        </div>
+      </div>
+
+      <label>Focus categories (optional)</label>
+      <div class="chips" id="categories"></div>
+
+      <div class="row-tight" style="margin-top:12px;">
+        <button class="btn primary" id="saveProfile">Save profile</button>
+        <span id="sessionPill" class="pill" title="Session id will appear after saving.">No session</span>
+      </div>
+      <div class="status" id="profileStatus">Fill your profile and click Save.</div>
+
+      <hr style="border:none;border-top:1px solid var(--border);margin:16px 0;" />
+
+      <div class="small muted">Backend: <code id="baseUrlCode"></code></div>
+      <div class="small muted">Tip: Responses are state-first. Set STRICT_STATE=1 in backend for in-state only.</div>
+    </section>
+
+    <!-- Chat -->
+    <section class="card chat">
+      <div class="messages" id="messages"></div>
+      <div class="composer">
+        <textarea id="input" placeholder="Ask about AI rules… e.g., Do we need to disclose AI use to applicants?" disabled></textarea>
+        <button class="btn" id="sendBtn" disabled>
+          <span id="sendSpinner" class="spinner" style="display:none"></span>
+          <span>Send</span>
+        </button>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    // === Config ===
+    const BASE_URL = localStorage.getItem('ai_legi_base') || 'http://127.0.0.1:8000';
+    document.getElementById('baseUrlCode').textContent = BASE_URL;
+
+    // === State ===
+    let sessionId = localStorage.getItem('ai_legi_session') || '';
+
+    // === UI helpers ===
+    const el = id => document.getElementById(id);
+    const msgList = el('messages');
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>\"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+    function makeSearchUrl(src){
+      const q = [src.bill_id, src.title, src.state].filter(Boolean).join(' ');
+      return 'https://www.google.com/search?q=' + encodeURIComponent(q);
+    }
+
+    function addMessage(role, text, sources = []) {
+      const wrap = document.createElement('div');
+      wrap.className = 'bubble ' + (role === 'user' ? 'me' : '');
+      const h = document.createElement('h3');
+      h.textContent = role === 'user' ? 'You' : 'Assistant';
+      const p = document.createElement('div');
+      p.className = 'reply';
+      p.textContent = text;
+      wrap.appendChild(h);
+      wrap.appendChild(p);
+
+      if (sources && sources.length && role !== 'user') {
+        const s = document.createElement('div');
+        s.className = 'sources';
+        const title = document.createElement('div');
+        title.className = 'muted small';
+        title.textContent = 'Sources';
+        s.appendChild(title);
+
+        sources.slice(0, 6).forEach(src => {
+          const row = document.createElement('div');
+          row.className = 'src';
+
+          const href = (src.url && String(src.url).trim()) ? src.url : makeSearchUrl(src);
+
+          const a = document.createElement('a');
+          a.className = 'src-link';
+          a.href = href;
+          a.target = '_blank';
+          a.rel = 'noopener';
+          a.innerHTML = `<b>${escapeHtml(src.bill_id || '')}</b> · ${escapeHtml(src.title || '')}`;
+
+          const meta = document.createElement('span');
+          meta.className = 'muted';
+          const date = src.date ? `, ${escapeHtml(src.date)}` : '';
+          meta.textContent = ` [${escapeHtml(src.state || '')}${date}]`;
+
+          row.appendChild(a);
+          row.appendChild(meta);
+          s.appendChild(row);
+        });
+        wrap.appendChild(s);
+      }
+
+      msgList.appendChild(wrap);
+      msgList.scrollTop = msgList.scrollHeight;
+    }
+
+    function setSession(id) {
+      sessionId = id;
+      localStorage.setItem('ai_legi_session', id);
+      el('sessionPill').textContent = id ? `Session: ${id.slice(0,8)}…` : 'No session';
+      const enabled = Boolean(id);
+      el('input').disabled = !enabled;
+      el('sendBtn').disabled = !enabled;
+      el('profileStatus').textContent = enabled ? 'Profile saved. You can start chatting.' : 'Fill your profile and click Save.';
+      if (enabled) {
+        addMessage('assistant',
+          "hey — I’m your AI policy explainer. ask me about AI laws by state or anything work-related. try: Do we need to disclose AI use to applicants?",
+          []
+        );
+      }
+    }
+
+    // === Populate controls ===
+    const STATES = [
+      'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY','DC'
+    ];
+    const CATS = [
+      'Private Sector Use','Effect on Labor/Employment','Impact Assessment','Notification','Oversight/Governance','Education Use','Provenance','Content Safety','Government Use','Cybersecurity','Appropriations','Private Right of Action','Definitions'
+    ];
+
+    const stateSel = el('state');
+    stateSel.innerHTML = '<option value="">Select…</option>' + STATES.map(s => `<option>${s}</option>`).join('');
+
+    const catWrap = el('categories');
+    const selectedCats = new Set();
+    CATS.forEach(c => {
+      const chip = document.createElement('div');
+      chip.className = 'chip';
+      chip.textContent = c;
+      chip.onclick = () => {
+        if (selectedCats.has(c)) { selectedCats.delete(c); chip.classList.remove('selected'); }
+        else { selectedCats.add(c); chip.classList.add('selected'); }
+      };
+      catWrap.appendChild(chip);
+    });
+
+    // Pre-fill from localStorage if present
+    (function hydrateProfile() {
+      if (sessionId) setSession(sessionId);
+      const saved = JSON.parse(localStorage.getItem('ai_legi_profile') || '{}');
+      if (saved.company_size) el('size').value = saved.company_size;
+      if (saved.industry) el('industry').value = saved.industry;
+      if (saved.state) stateSel.value = saved.state;
+      if (Array.isArray(saved.categories)) {
+        saved.categories.forEach(c => {
+          const idx = CATS.indexOf(c);
+          if (idx >= 0) {
+            selectedCats.add(c);
+            catWrap.children[idx].classList.add('selected');
+          }
+        });
+      }
+    })();
+
+    // === Actions ===
+    el('saveProfile').onclick = async () => {
+      const payload = {
+        company_size: el('size').value || null,
+        industry: el('industry').value || null,
+        state: stateSel.value || null,
+        categories: Array.from(selectedCats),
+      };
+      localStorage.setItem('ai_legi_profile', JSON.stringify(payload));
+      el('profileStatus').textContent = 'Saving…';
+      try {
+        const res = await fetch(`${BASE_URL}/onboarding`, {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        setSession(data.session_id);
+      } catch (e) {
+        el('profileStatus').textContent = `Save failed: ${e}`;
+      }
+    };
+
+    // --- Streaming chat (Enter to send; Shift+Enter for newline) ---
+    async function sendChatStream() {
+      const text = el('input').value.trim();
+      if (!text || !sessionId) return;
+
+      // show user message
+      addMessage('user', text);
+
+      // create an assistant bubble we’ll update as chunks arrive
+      const wrap = document.createElement('div');
+      wrap.className = 'bubble';
+      const h = document.createElement('h3'); h.textContent = 'Assistant';
+      const p = document.createElement('div'); p.className = 'reply'; p.textContent = '';
+      const sourcesDiv = document.createElement('div'); sourcesDiv.className = 'sources';
+      wrap.appendChild(h); wrap.appendChild(p);
+      msgList.appendChild(wrap); msgList.scrollTop = msgList.scrollHeight;
+
+      el('input').value = '';
+      el('sendBtn').disabled = true;
+
+      try {
+        const url = new URL(`${BASE_URL}/chat/stream`);
+        url.searchParams.set('session_id', sessionId);
+        url.searchParams.set('q', text);
+
+        const res = await fetch(url, { method: 'GET' });
+        if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buf = '';
+
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          const chunk = decoder.decode(value, { stream: true });
+          buf += chunk;
+
+          // live text until we see the sources marker
+          const idx = buf.indexOf('||SOURCES||');
+          const live = idx === -1 ? buf : buf.slice(0, idx);
+          p.textContent = live;
+          msgList.scrollTop = msgList.scrollHeight;
+
+          // once marker arrives, parse and render sources
+          if (idx !== -1) {
+            const jsonPart = buf.slice(idx + '||SOURCES||'.length);
+            try {
+              const obj = JSON.parse(jsonPart);
+              if (obj && Array.isArray(obj.sources) && obj.sources.length) {
+                const title = document.createElement('div');
+                title.className = 'muted small';
+                title.textContent = 'Sources';
+                sourcesDiv.innerHTML = '';
+                sourcesDiv.appendChild(title);
+
+                obj.sources.slice(0, 6).forEach(src => {
+                  const row = document.createElement('div');
+                  row.className = 'src';
+                  const href = (src.url && String(src.url).trim())
+                    ? src.url
+                    : makeSearchUrl(src);
+                  const a = document.createElement('a');
+                  a.className = 'src-link';
+                  a.href = href;
+                  a.target = '_blank';
+                  a.rel = 'noopener';
+                  a.innerHTML = `<b>${(src.bill_id||'')}</b> · ${src.title || ''}`;
+                  const meta = document.createElement('span');
+                  meta.className = 'muted';
+                  meta.textContent = ` [${src.state || ''}${src.date ? ', ' + src.date : ''}]`;
+                  row.appendChild(a);
+                  row.appendChild(meta);
+                  sourcesDiv.appendChild(row);
+                });
+                wrap.appendChild(sourcesDiv);
+              }
+            } catch { /* ignore partial JSON while streaming */ }
+          }
+        }
+      } catch (e) {
+        p.textContent = `⚠️ Error: ${e}`;
+      } finally {
+        el('sendBtn').disabled = false;
+        el('input').focus();
+      }
+    }
+
+    el('sendBtn').onclick = sendChatStream;
+    el('input').addEventListener('keydown', (e) => {
+      // Enter to send; Shift+Enter = newline
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendChatStream();
+      }
+    });
+  </script>
+</body>
+</html>

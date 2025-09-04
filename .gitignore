@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+
+# keep resume PDF but ignore generated index files
+.DS_Store
+*.pyc
+.models_cache/
+models/
+data/structured_aibills.json
+vector_store/*.npy
+vector_store/*.faiss

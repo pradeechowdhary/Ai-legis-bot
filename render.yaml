@@ -1,0 +1,35 @@
+services:
+  - type: web
+    name: ai-legis-bot
+    env: python
+    plan: free
+    buildCommand: |
+      pip install -r requirements.txt
+      # fetch the embedder into the repo path
+      python scripts/fetch_model.py
+      # rebuild clean CSV and index on each deploy
+      python scripts/prepare_json_to_csv.py
+      python scripts/build_index.py
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false   # set in dashboard after first import
+      - key: GROQ_MODEL
+        value: llama-3.3-70b-versatile
+      - key: STRICT_STATE
+        value: "1"
+      - key: EMB_MODEL_LOCAL
+        value: models/all-MiniLM-L6-v2
+      - key: HF_HUB_DISABLE_TELEMETRY
+        value: "1"
+      - key: PYTHONUNBUFFERED
+        value: "1"
+
+  # optional: serve the frontend as a static site (fast CDN) that talks to the web service above
+  - type: static
+    name: ai-legis-frontend
+    buildCommand: echo "no build"
+    publishPath: .
+    envVars:
+      - key: AI_BACKEND_URL
+        value: https://ai-legis-bot.onrender.com
