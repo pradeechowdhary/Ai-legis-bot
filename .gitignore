@@ -8,6 +8,5 @@ __pycache__/
 *.pyc
 .models_cache/
 models/
-data/structured_aibills.json
 vector_store/*.npy
 vector_store/*.faiss
